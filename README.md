@@ -1,112 +1,159 @@
-# Claude Code 快捷启动器
+# Claude Code 配置固化器
 
-一条命令启动 Claude Code，并且在**启动瞬间锁定当时的配置**：之后再改 `~/.claude/settings.json`，也不会影响已经在跑的会话。
+**一句话**：在 shell 里装一个 `cla` 函数，启动 Claude Code 时把当前配置固化到一份临时文件，让同一台机器上的多个会话各用各的模型，互不干扰。
 
-- 同一目录可以同时开多个用不同模型的会话
-- 临时配置文件随会话结束自动清理
-- 别名随便取，可选免授权模式
-
-> 适合经常切换模型 / API 地址 / key，又不想让新旧会话互相干扰的人。
-
-## 它解决什么问题
-
-Claude Code 默认所有会话共用一份 `~/.claude/settings.json`。你在会话 A 里换了模型，A 自己会跟着变，B 也跟着变，两个会话互相打架。
-
-这个启动器在启动时把当前的 `env` 配置复制成一份临时文件，用 `--settings` 只喂给这一次会话：
-
-| 步骤 | 操作 | 结果 |
-| --- | --- | --- |
-| 1 | 全局配置为 `glm-5`，执行 `cla` | 会话 1 锁定 `glm-5` |
-| 2 | 把全局配置改成 `claude-sonnet-4-6` | 会话 1 不受影响 |
-| 3 | 再次执行 `cla` | 会话 2 使用 `claude-sonnet-4-6` |
-
-两个会话各跑各的模型，互不干扰。
+> 名字说明：它不"启动"任何新东西，只是在 claude 启动前把配置拍一份快照，所以叫固化器更准确。
 
 ## 安装
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/WoodenDuo/claude-code-launcher/main/install-claude-wrapper.sh -o /tmp/install-claude-wrapper.sh
-source /tmp/install-claude-wrapper.sh
-```
+前提：已安装 `claude`；机器上有 `python3`、`python`、`jq` 中的任意一个（用来读 JSON）。
 
-装完新开一个终端（或执行 `source ~/.zshrc`），验证一下：
+### 1. 下载脚本
 
 ```bash
-type cla      # 输出 cla is a function 就成功了
+mkdir -p ~/.claude
+curl -fsSL https://raw.githubusercontent.com/WoodenDuo/claude-code-launcher/main/install-claude-wrapper.sh -o ~/.claude/install-claude-wrapper.sh
 ```
 
-> ⚠️ 必须用 `source` 执行。直接 `bash install-claude-wrapper.sh` 不会把函数写进你的 shell 配置。
+### 2. 选一种模式执行
 
-### 安装参数
+三种模式都**必须**用 `source` 执行。直接 `bash install-claude-wrapper.sh` 只会跑一遍，不会写进你的 shell 配置。
+
+#### 模式 A：正常模式（推荐，默认别名 `cla`）
 
 ```bash
-source /tmp/install-claude-wrapper.sh zz                      # 自定义别名 zz
-source /tmp/install-claude-wrapper.sh cla --skip-permissions   # 免授权模式
+source ~/.claude/install-claude-wrapper.sh
 ```
 
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| 别名 | 启动命令的名字，可以随便取 | `cla` |
-| `--skip-permissions` | 跳过权限确认（谨慎使用） | 关闭 |
+- 命令：`cla`
+- 效果：shell 配置文件里多一个 `cla()` 函数
+- 权限：保留 Claude Code 默认的权限确认
+
+#### 模式 B：自定义别名
+
+```bash
+source ~/.claude/install-claude-wrapper.sh zz
+```
+
+- 命令：`zz`
+- 别名可以随便取，但别用 `cc`（系统 C 编译器）、`git`、`ls` 这类已存在的命令
+- 权限：同模式 A
+
+#### 模式 C：免授权模式
+
+```bash
+source ~/.claude/install-claude-wrapper.sh cla --skip-permissions
+```
+
+- 命令：`cla`
+- 权限：每次启动自动附加 `--dangerously-skip-permissions`，不再逐条确认
+- 谨慎使用：模型可以不经确认直接改文件、跑命令
+
+| 模式 | 命令 | 生成别名 | 权限确认 |
+| --- | --- | --- | --- |
+| A 正常 | `source ...install-claude-wrapper.sh` | `cla` | 保留 |
+| B 自定义别名 | `source ...install-claude-wrapper.sh zz` | `zz` | 保留 |
+| C 免授权 | `source ...install-claude-wrapper.sh cla --skip-permissions` | `cla` | 跳过 |
+
+> B 和 C 可以组合：`source ...install-claude-wrapper.sh zz --skip-permissions`。
+
+### 3. 生效并验证
+
+```bash
+source ~/.zshrc              # zsh；bash 用 source ~/.bashrc 或 ~/.bash_profile
+type cla                     # 输出 cla is a function 即成功
+```
+
+## 支持的系统
+
+安装脚本会自动识别当前 shell，把函数写进对应的 rc 文件：
+
+| 系统 | shell | 写入的 rc 文件 | 状态 |
+| --- | --- | --- | --- |
+| macOS | zsh（默认） | `~/.zshrc` | 已测试 |
+| macOS | bash | `~/.bash_profile` | 已测试 |
+| Linux | bash（默认） | `~/.bashrc` | 已支持 |
+| Linux | zsh | `~/.zshrc` | 已支持 |
+
+想强制指定或用非默认路径：
+
+```bash
+source ...install-claude-wrapper.sh --shell=bash          # 强制按 bash 安装
+source ...install-claude-wrapper.sh --rc=~/.config/zsh/.zshrc   # 直接指定 rc 文件
+```
+
+Windows 原生 cmd / PowerShell 不支持；请在 WSL 里按 Linux 方式安装。
 
 ## 使用
 
 ```bash
 cla                 # 用当前全局配置启动
-cla --resume        # 其余参数原样透传给 claude，claude 支持的都能用
+cla --resume        # 后面所有参数原样传给 claude
 cla --help
 ```
 
-## 只在启动时锁定 env
+## 执行原理
 
-启动器只固化 `settings.json` 里的 `env` 字段（模型、API 地址、key 这类环境变量），其它设置仍按全局配置生效——这样升级、改权限、改 hook 不用重新装。
+### 启动时：一次会话一份配置快照
 
-## 依赖
+`cla` 不是新程序，就是一个 shell 函数。每次执行它，依次做这几件事：
 
-读取 JSON 需要以下任一命令，装一个就行：
+1. **读全局配置**：打开 `~/.claude/settings.json`，取其中的 `env` 字段（模型名、API 地址、key 这类环境变量）。
+   - 文件不存在 → 直接 `claude "$@"`
+   - 没有 `python3 / python / jq` → 打一行警告，直接 `claude "$@"`，不会中断
+2. **写临时文件**：把 `env` 原样写到 `$TMPDIR/.claude-frozen-config-$$.json`（没设 `$TMPDIR` 时用 `/tmp`）。`$$` 是当前 shell 的进程号，每开一个终端文件名都不一样。
+3. **挂清理钩子**：`trap "rm -f 临时文件" EXIT INT TERM`，正常退出或 Ctrl+C 都会删掉。
+4. **带 settings 启动**：`claude --settings 临时文件 "$@"`。这次会话只认这份快照里的 `env`，不再关心全局文件被改成了什么。
+5. **收尾**：退出后清掉 trap、删掉临时文件，并把 claude 的退出码透传出去。
 
-- `python3`（推荐）
-- `python`
-- `jq`
+```
+settings.json ──取 env──▶ $TMPDIR/.claude-frozen-config-12345.json
+                                  │
+                       claude --settings ...  ◀── 你的参数原样透传
+                                  │
+                            会话结束 → rm 临时文件
+```
 
-三个都没有时，脚本会提示一句警告并直接启动 `claude`，不会报错中断。
+所以两条 `cla` 先后启动，各自锁定自己那一刻的模型；中途改全局配置，只影响之后新启动的会话。
+
+### 安装时：往 rc 文件里插一段带标记的代码
+
+`source install-claude-wrapper.sh` 做的三件事：
+
+1. 识别 shell，算出要写哪个 rc 文件（不存在就创建）；
+2. 如果里面已有 `# Claude Code 配置固化器` 到 `# END Claude Code 配置固化器` 这一段，先整段删掉——所以可以重复安装、换别名重装（旧版本 `快捷启动器` 的段也会被一并清理）；
+3. 追加新的函数定义，并在末尾 `source` 对应的 rc 文件，让当前 shell 立刻可用。
+
+它只动这一段，不碰你的 PATH、alias 和其它配置。
+
+## 只锁定 env
+
+只有 `settings.json` 的 `env` 会被固化；权限、hooks、MCP 等其它设置仍按全局配置生效，日常调整不用重装。
 
 ## 卸载
 
-1. 编辑 `~/.zshrc`，删除 `# Claude Code 快捷启动器` 到 `# END Claude Code 快捷启动器` 之间的内容；
-2. 当前终端执行 `unfunction cla && source ~/.zshrc`。
-
-临时文件都在 `/tmp/.claude-frozen-config-<PID>.json`，会话结束自动删除，也可以手动清理：
+1. 删掉 rc 文件里 `# Claude Code 配置固化器` 到 `# END Claude Code 配置固化器` 之间的内容；
+2. 让函数从当前 shell 消失：
 
 ```bash
-rm -f /tmp/.claude-frozen-config-*.json
+# zsh
+unfunction cla && source ~/.zshrc
+# bash
+unset -f cla && source ~/.bashrc
 ```
+
+3. 可选：`rm -f "${TMPDIR:-/tmp}"/.claude-frozen-config-*.json`
 
 ## 常见问题
 
-**提示 `defining function based on alias`**
-别名和已有的 alias 冲突了。先 `unalias cla`，再重新 `source ~/.zshrc`。
+**`defining function based on alias`** —— 别名和已有 alias 冲突，先 `unalias cla`，再 `source ~/.zshrc`。
 
-**提示 `clang: error: no input files`**
-你把别名取成了 `cc`，它是系统的 C 编译器。换一个别名重装，比如 `cla`。
+**`clang: error: no input files`** —— 别名取成了 `cc`，换成 `cla` 重装。
 
-**会不会污染现有配置？**
-不会。安装只往 `~/.zshrc` 追加一段带起止标记的函数定义，重复安装会先删掉旧段再写新的。
+**装完提示 `cla: command not found`** —— 装的 rc 文件和当前 shell 不匹配。用 `echo $SHELL` 确认 shell，或用 `--rc=` 指定正确文件后重装。
 
-## 文件
-
-| 文件 | 说明 |
-| --- | --- |
-| `install-claude-wrapper.sh` | 安装脚本，负责写入 shell 函数 |
-| `README.md` | 本文档 |
+**临时文件在哪** —— `${TMPDIR:-/tmp}/.claude-frozen-config-<PID>.json`，会话结束自动删除。
 
 ## English TL;DR
 
-A tiny launcher for Claude Code that freezes your `settings.json` `env` at launch, so several sessions can run different models side by side.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/WoodenDuo/claude-code-launcher/main/install-claude-wrapper.sh -o /tmp/install-claude-wrapper.sh
-source /tmp/install-claude-wrapper.sh        # then run: cla
-```
-
-Must be executed with `source`.
+**Claude Code Config Freezer** — a shell function that freezes Claude Code's `settings.json` `env` into a temp file at launch, so several sessions can run different models side by side. Works on macOS/Linux with zsh or bash. Install with `source`, then run `cla`.
